@@ -1,5 +1,51 @@
-import { useCallback, useState } from "react";
-import Papa from "papaparse";
+import { useState } from "react";
+
+export const Parser = (text) => {
+  const result = [];
+  let currentRow = [];
+  let currentCell = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (char == '"') {
+      inQuotes = !inQuotes;
+    } else if ((char == "," || char == ";") && !inQuotes) {
+      currentRow.push(currentCell.trim());
+      currentCell = "";
+    } else if (char == "\n" && !inQuotes) {
+      currentRow.push(currentCell.trim());
+      result.push(currentRow);
+      currentCell = "";
+      currentRow = [];
+    } else {
+      currentCell += char;
+    }
+  }
+
+  if (currentCell) currentRow.push(currentCell.trim());
+  if (currentRow.length > 0) result.push(currentRow);
+
+  const validRows = result.filter((r) => r.join("").trim() !== "");
+  if (validRows.length < 2) return { headers: [], data: [] };
+
+  const headers = validRows[0];
+  console.log(headers);
+  const data = validRows.slice(1).map((r) => {
+    const obj = {};
+    headers.forEach((header, index) => {
+      let value = r[index] || "";
+      if (value.startsWith('"') && value.endsWith('"')) {
+        value = value.substring(1, value.length - 1);
+      }
+      obj[header] = value;
+    });
+    return obj;
+  });
+
+  return { headers, data };
+};
 
 export default function CsvUploader() {
   const [headers, setHeaders] = useState([]);
@@ -9,16 +55,18 @@ export default function CsvUploader() {
   const handleFile = (file) => {
     if (!file) return;
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (result) => {
-        if (result.meta.fields) {
-          setHeaders(result.meta.fields);
-          setCsvData(result.data);
-        }
-      },
-    });
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const result = Parser(text);
+      console.log("Результат парсера:", result.headers);
+      if (result.headers.length > 0) {
+        setHeaders(result.headers);
+        setCsvData(result.data);
+      }
+    };
+
+    reader.readAsText(file);
   };
 
   const handleDragOver = (e) => {
@@ -62,7 +110,7 @@ export default function CsvUploader() {
           <p>
             {isDragActive
               ? "Бросьте файл сюда"
-              : "Перетащите файл сюда или нажмите"}
+              : "Перетащите файл или нажмите, чтобы выбрать"}
           </p>
         </div>
 

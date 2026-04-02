@@ -40,6 +40,10 @@ h1.title {
   text-align: center;
 }
 
+.drop-zone > * {
+  pointer-events: none;
+}
+
 .drop-zone {
   background-color: var(--icy-blue);
   width: 100%;
